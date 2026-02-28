@@ -1,7 +1,7 @@
 import os
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import json
@@ -19,6 +19,7 @@ app = FastAPI(
 # Configuration
 TARGET_API_BASE_URL = os.getenv("TARGET_API_BASE_URL", "https://api.openai.com/v1")
 TARGET_API_KEY = os.getenv("TARGET_API_KEY")
+PRINT_PAYLOAD = os.getenv("PRINT_PAYLOAD", "").lower() in ("1", "true", "yes")
 
 if not TARGET_API_KEY:
     raise ValueError("TARGET_API_KEY environment variable is required")
@@ -68,14 +69,32 @@ async def list_models():
 @app.post("/v1/chat/completions")
 async def create_chat_completion(request: ChatCompletionRequest):
     """创建聊天补全"""
+    headers = {
+        "Authorization": f"Bearer {TARGET_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    payload = request.dict(exclude_none=True)
+
+    if PRINT_PAYLOAD:
+        print("[chat/completions] Payload:", json.dumps(payload, indent=2, ensure_ascii=False))
+
+    if request.stream:
+        async def stream_generator():
+            async with httpx.AsyncClient() as client:
+                async with client.stream(
+                    "POST",
+                    f"{TARGET_API_BASE_URL}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=60.0
+                ) as response:
+                    response.raise_for_status()
+                    async for chunk in response.aiter_bytes():
+                        yield chunk
+        return StreamingResponse(stream_generator(), media_type="text/event-stream")
+
     async with httpx.AsyncClient() as client:
-        headers = {
-            "Authorization": f"Bearer {TARGET_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        
-        payload = request.dict(exclude_none=True)
-        
         try:
             response = await client.post(
                 f"{TARGET_API_BASE_URL}/chat/completions",
@@ -91,14 +110,32 @@ async def create_chat_completion(request: ChatCompletionRequest):
 @app.post("/v1/completions")
 async def create_completion(request: CompletionRequest):
     """创建文本补全"""
+    headers = {
+        "Authorization": f"Bearer {TARGET_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    payload = request.dict(exclude_none=True)
+
+    if PRINT_PAYLOAD:
+        print("[completions] Payload:", json.dumps(payload, indent=2, ensure_ascii=False))
+
+    if request.stream:
+        async def stream_generator():
+            async with httpx.AsyncClient() as client:
+                async with client.stream(
+                    "POST",
+                    f"{TARGET_API_BASE_URL}/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=60.0
+                ) as response:
+                    response.raise_for_status()
+                    async for chunk in response.aiter_bytes():
+                        yield chunk
+        return StreamingResponse(stream_generator(), media_type="text/event-stream")
+
     async with httpx.AsyncClient() as client:
-        headers = {
-            "Authorization": f"Bearer {TARGET_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        
-        payload = request.dict(exclude_none=True)
-        
         try:
             response = await client.post(
                 f"{TARGET_API_BASE_URL}/completions",
