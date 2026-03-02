@@ -17,7 +17,7 @@ app = FastAPI(
 # Configuration
 TARGET_API_BASE_URL = os.getenv("TARGET_API_BASE_URL", "https://api.openai.com/v1")
 TARGET_API_KEY = os.getenv("TARGET_API_KEY")
-PRINT_PAYLOAD = os.getenv("PRINT_PAYLOAD", "").lower() in ("1", "true", "yes")
+PRINT_REQUEST = os.getenv("PRINT_REQUEST", "").lower() in ("1", "true", "yes")
 PRINT_RESPONSE = os.getenv("PRINT_RESPONSE", "").lower() in ("1", "true", "yes")
 
 if not TARGET_API_KEY:
@@ -84,7 +84,7 @@ async def create_chat_completion(request: Request):
     body = await request.body()
     payload = json.loads(body) if body else {}
 
-    if PRINT_PAYLOAD:
+    if PRINT_REQUEST:
         print("[chat/completions] Payload:", json.dumps(payload, ensure_ascii=False))
 
     stream = payload.get("stream", False)
@@ -137,7 +137,7 @@ async def create_completion(request: Request):
     body = await request.body()
     payload = json.loads(body) if body else {}
 
-    if PRINT_PAYLOAD:
+    if PRINT_REQUEST:
         print("[completions] Payload:", json.dumps(payload, ensure_ascii=False))
 
     stream = payload.get("stream", False)
