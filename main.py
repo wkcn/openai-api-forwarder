@@ -2,8 +2,6 @@ import os
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
 import json
 
 # Load environment variables
@@ -23,28 +21,6 @@ PRINT_PAYLOAD = os.getenv("PRINT_PAYLOAD", "").lower() in ("1", "true", "yes")
 
 if not TARGET_API_KEY:
     raise ValueError("TARGET_API_KEY environment variable is required")
-
-class ChatCompletionRequest(BaseModel):
-    model: str
-    messages: list
-    temperature: Optional[float] = None
-    max_tokens: Optional[int] = None
-    top_p: Optional[float] = None
-    frequency_penalty: Optional[float] = None
-    presence_penalty: Optional[float] = None
-    stop: Optional[list] = None
-    stream: Optional[bool] = False
-
-class CompletionRequest(BaseModel):
-    model: str
-    prompt: str
-    temperature: Optional[float] = None
-    max_tokens: Optional[int] = None
-    top_p: Optional[float] = None
-    frequency_penalty: Optional[float] = None
-    presence_penalty: Optional[float] = None
-    stop: Optional[list] = None
-    stream: Optional[bool] = False
 
 @app.get("/")
 async def root():
@@ -67,19 +43,22 @@ async def list_models():
             raise HTTPException(status_code=response.status_code, detail=f"Target API error: {str(e)}")
 
 @app.post("/v1/chat/completions")
-async def create_chat_completion(request: ChatCompletionRequest):
-    """创建聊天补全"""
+async def create_chat_completion(request: Request):
+    """Forward chat completion requests"""
     headers = {
         "Authorization": f"Bearer {TARGET_API_KEY}",
         "Content-Type": "application/json"
     }
 
-    payload = request.dict(exclude_none=True)
+    body = await request.body()
+    payload = json.loads(body) if body else {}
 
     if PRINT_PAYLOAD:
         print("[chat/completions] Payload:", json.dumps(payload, indent=2, ensure_ascii=False))
 
-    if request.stream:
+    stream = payload.get("stream", False)
+
+    if stream:
         async def stream_generator():
             async with httpx.AsyncClient() as client:
                 async with client.stream(
@@ -108,19 +87,22 @@ async def create_chat_completion(request: ChatCompletionRequest):
             raise HTTPException(status_code=response.status_code, detail=f"Target API error: {str(e)}")
 
 @app.post("/v1/completions")
-async def create_completion(request: CompletionRequest):
-    """创建文本补全"""
+async def create_completion(request: Request):
+    """Forward text completion requests"""
     headers = {
         "Authorization": f"Bearer {TARGET_API_KEY}",
         "Content-Type": "application/json"
     }
 
-    payload = request.dict(exclude_none=True)
+    body = await request.body()
+    payload = json.loads(body) if body else {}
 
     if PRINT_PAYLOAD:
         print("[completions] Payload:", json.dumps(payload, indent=2, ensure_ascii=False))
 
-    if request.stream:
+    stream = payload.get("stream", False)
+
+    if stream:
         async def stream_generator():
             async with httpx.AsyncClient() as client:
                 async with client.stream(
