@@ -92,22 +92,24 @@ async def create_chat_completion(request: Request):
     if stream:
         async def stream_generator():
             chunks = []
-            async with httpx.AsyncClient() as client:
-                async with client.stream(
-                    "POST",
-                    f"{TARGET_API_BASE_URL}/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=60.0
-                ) as response:
-                    response.raise_for_status()
-                    async for chunk in response.aiter_bytes():
-                        if PRINT_RESPONSE:
-                            chunks.append(chunk)
-                        yield chunk
-            if PRINT_RESPONSE:
-                parsed = parse_stream_response(b"".join(chunks))
-                print("[chat/completions] Response (stream):", parsed)
+            try:
+                async with httpx.AsyncClient() as client:
+                    async with client.stream(
+                        "POST",
+                        f"{TARGET_API_BASE_URL}/chat/completions",
+                        headers=headers,
+                        json=payload,
+                        timeout=60.0
+                    ) as response:
+                        response.raise_for_status()
+                        async for chunk in response.aiter_bytes():
+                            if PRINT_RESPONSE:
+                                chunks.append(chunk)
+                            yield chunk
+            finally:
+                if PRINT_RESPONSE:
+                    parsed = parse_stream_response(b"".join(chunks))
+                    print("[chat/completions] Response (stream):", parsed)
         return StreamingResponse(stream_generator(), media_type="text/event-stream")
 
     async with httpx.AsyncClient() as client:
@@ -145,22 +147,24 @@ async def create_completion(request: Request):
     if stream:
         async def stream_generator():
             chunks = []
-            async with httpx.AsyncClient() as client:
-                async with client.stream(
-                    "POST",
-                    f"{TARGET_API_BASE_URL}/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=60.0
-                ) as response:
-                    response.raise_for_status()
-                    async for chunk in response.aiter_bytes():
-                        if PRINT_RESPONSE:
-                            chunks.append(chunk)
-                        yield chunk
-            if PRINT_RESPONSE:
-                parsed = parse_stream_response(b"".join(chunks))
-                print("[completions] Response (stream):", parsed)
+            try:
+                async with httpx.AsyncClient() as client:
+                    async with client.stream(
+                        "POST",
+                        f"{TARGET_API_BASE_URL}/completions",
+                        headers=headers,
+                        json=payload,
+                        timeout=60.0
+                    ) as response:
+                        response.raise_for_status()
+                        async for chunk in response.aiter_bytes():
+                            if PRINT_RESPONSE:
+                                chunks.append(chunk)
+                            yield chunk
+            finally:
+                if PRINT_RESPONSE:
+                    parsed = parse_stream_response(b"".join(chunks))
+                    print("[completions] Response (stream):", parsed)
         return StreamingResponse(stream_generator(), media_type="text/event-stream")
 
     async with httpx.AsyncClient() as client:
