@@ -15,7 +15,7 @@ MODEL_PATH = 'hunyuan-a13b'
 temperature = 0.05
 top_p = 0.1
 repetition_penalty = 1.05
-max_tokens = 128
+max_tokens = 1024
 
 
 stream = True

@@ -135,6 +135,7 @@ ChatCompletionMessage(content='Hello! How can I assist you today?', role='assist
 | `PORT` | `8000` | Server listen port |
 | `DEBUG` | `false` | Enable debug mode |
 | `PRINT_PAYLOAD` | `false` | Print request payload to stdout (set to `1`, `true`, or `yes` to enable) |
+| `PRINT_RESPONSE` | `false` | Print response to stdout (set to `1`, `true`, or `yes` to enable) |
 
 ## Supported Endpoints
 

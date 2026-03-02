@@ -135,6 +135,7 @@ ChatCompletionMessage(content='Hello! How can I assist you today?', role='assist
 | `PORT` | `8000` | 服务监听端口 |
 | `DEBUG` | `false` | 是否开启调试模式 |
 | `PRINT_PAYLOAD` | `false` | 是否将请求 payload 打印到标准输出（设为 `1`、`true` 或 `yes` 开启） |
+| `PRINT_RESPONSE` | `false` | 是否将回复 response 打印到标准输出（设为 `1`、`true` 或 `yes` 开启） |
 
 ## 支持的端点
 

@@ -18,9 +18,40 @@ app = FastAPI(
 TARGET_API_BASE_URL = os.getenv("TARGET_API_BASE_URL", "https://api.openai.com/v1")
 TARGET_API_KEY = os.getenv("TARGET_API_KEY")
 PRINT_PAYLOAD = os.getenv("PRINT_PAYLOAD", "").lower() in ("1", "true", "yes")
+PRINT_RESPONSE = os.getenv("PRINT_RESPONSE", "").lower() in ("1", "true", "yes")
 
 if not TARGET_API_KEY:
     raise ValueError("TARGET_API_KEY environment variable is required")
+
+def parse_stream_response(raw_bytes: bytes) -> str:
+    """Parse SSE stream bytes, concatenate content and finish_reason for printing."""
+    full_content = []
+    finish_reason = None
+    text = raw_bytes.decode("utf-8", errors="replace")
+    for line in text.splitlines():
+        line = line.strip()
+        if not line.startswith("data:"):
+            continue
+        data_str = line[len("data:"):].strip()
+        if data_str == "[DONE]":
+            continue
+        try:
+            data = json.loads(data_str)
+        except json.JSONDecodeError:
+            continue
+        choices = data.get("choices", [])
+        for choice in choices:
+            delta = choice.get("delta", {})
+            content = delta.get("content", "")
+            if content:
+                full_content.append(content)
+            fr = choice.get("finish_reason")
+            if fr:
+                finish_reason = fr
+    result = "".join(full_content)
+    if finish_reason:
+        result += f" [finish_reason: {finish_reason}]"
+    return result
 
 @app.get("/")
 async def root():
@@ -54,12 +85,13 @@ async def create_chat_completion(request: Request):
     payload = json.loads(body) if body else {}
 
     if PRINT_PAYLOAD:
-        print("[chat/completions] Payload:", json.dumps(payload, indent=2, ensure_ascii=False))
+        print("[chat/completions] Payload:", json.dumps(payload, ensure_ascii=False))
 
     stream = payload.get("stream", False)
 
     if stream:
         async def stream_generator():
+            chunks = []
             async with httpx.AsyncClient() as client:
                 async with client.stream(
                     "POST",
@@ -70,7 +102,12 @@ async def create_chat_completion(request: Request):
                 ) as response:
                     response.raise_for_status()
                     async for chunk in response.aiter_bytes():
+                        if PRINT_RESPONSE:
+                            chunks.append(chunk)
                         yield chunk
+            if PRINT_RESPONSE:
+                parsed = parse_stream_response(b"".join(chunks))
+                print("[chat/completions] Response (stream):", parsed)
         return StreamingResponse(stream_generator(), media_type="text/event-stream")
 
     async with httpx.AsyncClient() as client:
@@ -82,7 +119,10 @@ async def create_chat_completion(request: Request):
                 timeout=60.0
             )
             response.raise_for_status()
-            return response.json()
+            result = response.json()
+            if PRINT_RESPONSE:
+                print("[chat/completions] Response:", json.dumps(result, ensure_ascii=False))
+            return result
         except httpx.HTTPError as e:
             raise HTTPException(status_code=response.status_code, detail=f"Target API error: {str(e)}")
 
@@ -98,12 +138,13 @@ async def create_completion(request: Request):
     payload = json.loads(body) if body else {}
 
     if PRINT_PAYLOAD:
-        print("[completions] Payload:", json.dumps(payload, indent=2, ensure_ascii=False))
+        print("[completions] Payload:", json.dumps(payload, ensure_ascii=False))
 
     stream = payload.get("stream", False)
 
     if stream:
         async def stream_generator():
+            chunks = []
             async with httpx.AsyncClient() as client:
                 async with client.stream(
                     "POST",
@@ -114,7 +155,12 @@ async def create_completion(request: Request):
                 ) as response:
                     response.raise_for_status()
                     async for chunk in response.aiter_bytes():
+                        if PRINT_RESPONSE:
+                            chunks.append(chunk)
                         yield chunk
+            if PRINT_RESPONSE:
+                parsed = parse_stream_response(b"".join(chunks))
+                print("[completions] Response (stream):", parsed)
         return StreamingResponse(stream_generator(), media_type="text/event-stream")
 
     async with httpx.AsyncClient() as client:
@@ -126,7 +172,10 @@ async def create_completion(request: Request):
                 timeout=60.0
             )
             response.raise_for_status()
-            return response.json()
+            result = response.json()
+            if PRINT_RESPONSE:
+                print("[completions] Response:", json.dumps(result, ensure_ascii=False))
+            return result
         except httpx.HTTPError as e:
             raise HTTPException(status_code=response.status_code, detail=f"Target API error: {str(e)}")
 
